@@ -1,0 +1,6 @@
+			jw, Sun Feb 19 22:41:38 UTC 2012
+
+1.2.0	* regenerated graphtecprint.glade with glade 3.7.0
+	  (Does not work with newer versions of glade.)
+	* implemented up/down/left/right buttons for cameo.
+
