@@ -1,0 +1,446 @@
+#!/usr/bin/env python
+
+import fcntl
+import sys
+import gtk, gobject
+import gtk.glade
+import os
+import glob
+import cairo
+
+
+version = "1.0.1"
+ 
+# Downscaling factor from paper size (mm*20) to pixels
+previewscale = 20
+
+# These appear to be device limits
+margintop = 500
+marginright = 320
+
+# Format:  ID, speed, force, cap-colour, name
+# Non-standard presets must use ID "300".
+papertypes = [
+        ("100", 10, 27, "yellow", "Card without Craft Paper Backing"),
+        ("101", 10, 27, "yellow", "Card with Craft Paper Backing"),
+        ("102", 10, 10, "blue", "Vinyl Sticker"),
+        ("106", 10, 14, "blue", "Film Labels"),
+        ("111", 10, 27, "yellow", "Thick Media"),
+        ("112", 10,  2, "blue", "Thin Media"),
+        ("113", 10, 10, "pen", "Pen"),
+        ("120", 10, 30, "blue", "Bond Paper 13-28 lbs"),
+        ("121", 10, 30, "yellow", "Bristol Paper 57-67 lbs"),
+        ("122", 10, 30, "yellow", "Cardstock 40-60 lbs"),
+        ("123", 10, 30, "yellow", "Cover 40-60 lbs"),
+        ("124", 10,  1, "blue", "Film, Double Matte Translucent"),
+        ("125", 10,  1, "blue", "Film, Vinyl With Adhesive Back"),
+        ("126", 10,  1, "blue", "Film, Window With Kling Adhesive"),
+        ("127", 10, 30, "red", "Index 90 lbs"),
+        ("128", 10, 20, "yellow", "Inkjet Photo Paper 28-44 lbs"),
+        ("129", 10, 27, "red", "Inkjet Photo Paper 45-75 lbs"),
+        ("130",  3, 30, "red", "Magnetic Sheet"),
+        ("131", 10, 30, "blue", "Offset 24-60 lbs"),
+        ("132", 10,  5, "blue", "Print Paper Light Weight"),
+        ("133", 10, 25, "yellow", "Print Paper Medium Weight"),
+        ("134", 10, 20, "blue", "Sticker Sheet"),
+        ("135", 10, 20, "red", "Tag 100 lbs"),
+        ("136", 10, 30, "blue", "Text Paper 24-70 lbs"),
+        ("137", 10, 30, "yellow", "Vellum Bristol 57-67 lbs"),
+        ("138", 10, 30, "blue", "Writing Paper 24-70 lbs")
+        ]
+
+# Format: name, width, height
+# Sizes are specified in millimeters * 20
+papersizes = [
+        ("A4",     4200, 5940),
+        ("Letter", 4318, 5588)
+        ]
+
+
+def getprinterident(file):
+    try:
+        f = open(file, "r")
+    except IOError, (val, msg):
+        print "Error opening " + file + ":", val, msg
+        if val == 13:
+            print "Try running:  sudo chmod a+rw " + file
+        return None
+    x = fcntl.ioctl(f.fileno(), 0x84005001, '\x00' * 256)
+    f.close()
+    if not x:
+        return None
+    l = (ord(x[0]) << 8) | ord(x[1])
+    x = x[2:l]
+    return x
+
+
+class dialog:
+    def __init__(self):
+        self.widgets = gtk.glade.XML(datadir + "/graphtecprint.glade")
+        #self.widgets = gtk.glade.xml_new_from_buffer(gladexml, len(gladexml))
+        self.widgets.signal_autoconnect(dialog.__dict__)
+
+        self.doit = False
+
+        self.settings = {}
+
+    def __getitem__(self, key):
+        return self.widgets.get_widget(key)
+
+    def on_dialog1_close(a):
+        gtk.main_quit()
+
+    def on_dialog1_delete_event(a, b):
+        gtk.main_quit()
+
+    def on_cancelbutton1_clicked(w):
+        gtk.main_quit()
+
+    def on_manualsettings_toggled(w):
+        v = w.get_active()
+        dialog["table2"].set_sensitive(v)
+
+    def on_dialog2_close(a):
+        dialog["dialog2"].set_property("visible", False)
+
+    def on_dialog2_delete_event(a, b):
+        dialog["dialog2"].set_property("visible", False)
+
+    def on_okbutton2_clicked(w):
+        dialog["dialog2"].set_property("visible", False)
+
+    def on_okbutton1_clicked(w):
+
+        dialog.settings = {
+                "printer": dialog["printer"].get_active(),
+                "papersize": dialog["papersize"].get_active(),
+                "orientation": dialog["orientation"].get_active(),
+                "papertype": dialog["papertype"].get_active(),
+                "cuttingspeed": dialog["cuttingspeed"].get_value(),
+                "cuttingforce": dialog["cuttingforce"].get_value(),
+                "trackenhancing": dialog["trackenhancing"].get_active()
+                }
+
+        dialog.doit = True
+
+        gtk.main_quit()
+
+    def on_papersize_changed(w):
+        name, width, height = papersizes[dialog["papersize"].get_active()]
+        dialog["drawingarea1"].set_size_request(width / previewscale, height / previewscale)
+
+    def on_papertype_changed(w):
+        v = w.get_active()
+        row = papertypes[v]
+        dialog["cuttingspeed"].set_value(row[1])
+        dialog["cuttingforce"].set_value(row[2])
+        dialog["capimage"].set_from_file(datadir + "/cap-" + row[3] + ".png")
+
+    def on_drawingarea1_expose_event(w, event):
+
+        area = dialog["drawingarea1"]
+
+        x, y, width, height = area.allocation
+
+        ctx = area.window.cairo_create()
+
+        ctx.set_source_rgb (1, 1, 1)
+        ctx.set_operator (cairo.OPERATOR_SOURCE)
+        ctx.paint()
+
+        ctx.set_line_width (1)
+        ctx.set_source_rgb (1, 0.5, 0.5)
+        ctx.move_to(0, height)
+        ctx.line_to(width - marginright/previewscale, height);
+        ctx.line_to(width - marginright/previewscale, margintop/previewscale)
+        ctx.line_to(0, margintop/previewscale)
+        ctx.line_to(0, height)
+        ctx.stroke()
+        
+        ctx.set_line_width (0.5)
+        ctx.set_source_rgb (0, 0, 0)
+
+        scale = 1.0 / previewscale
+
+        for s in strokes:
+            p = s[0]
+            #print ( p[0] * scale, p[1] * scale )
+            ctx.move_to( p[0] * scale, height - p[1] * scale )
+            for p in s[1:]:
+                #print ( p[0] * scale, p[1] * scale )
+                ctx.line_to( p[0] * scale, height - p[1] * scale )
+            ctx.stroke()
+
+        return True
+
+    def on_rescan_clicked(w):
+
+        scanprinters()
+
+        if printers:
+            cb = dialog["printer"]
+            
+            selected = cb.get_active()
+            if selected < 0:
+                selected = 0
+
+            cb.get_model().clear()
+
+            for printer in printers:
+                dev, p = printer
+                cb.append_text(p["DESCRIPTION"] + " (" + dev + ")")
+
+            cb.set_active(selected)
+
+            dialog["okbutton1"].set_sensitive(True)
+
+def readresult(f):
+    res = ""
+    while True:
+        c = f.read(1)
+        res = res + c
+        if c == '\x03':
+            break
+    return res
+
+
+def doit(settings):
+    printer = printers[settings["printer"]]
+    page = papersizes[settings["papersize"]]
+    papertype = papertypes[settings["papertype"]]
+    orientation = ["1","0"][settings["orientation"]]
+    cuttingspeed = settings["cuttingspeed"]
+    cuttingforce = settings["cuttingforce"]
+    trackenhancing = ["0","1"][settings["trackenhancing"]]
+
+    debug = False
+
+    if debug:
+        f = sys.stdout
+    else:
+        f = open(printer[0], "r+")
+
+    f.write("\x1b\x04")
+    f.write("\x1b\x05")
+
+    if not debug:
+        res = readresult(f)
+        if res != "0\x03":
+            print "graphtecprint: Fatal: Error in handshake. Got res " + repr(res) + "."
+            f.close()
+            return 4
+
+    f.write("TT\x03")
+    f.write("FG\x03")
+
+    if not debug:
+        res = readresult(f)
+        if res == 'V5.00    \x03':
+            pass # QuicKutz Silhouette
+        elif res == 'V2.11 ALQ\x03':
+            pass # Wishblade
+        else:
+            print "graphtecprint: Warning: Unexpected version:", repr(res)
+
+    f.write("FW" + str(papertype[0]) + "\x03")
+    f.write("!" + str(cuttingspeed) + "\x03")
+    f.write("FX" + str(cuttingforce) + ",0\x03")
+
+    f.write("FC18\x03")
+    f.write("FY" + trackenhancing + "\x03")
+    f.write("FN" + orientation + "\x03")
+    f.write("FE0\x03")
+    f.write("TB71\x03")
+
+    if not debug:
+        res = readresult(f)
+        if res != '    0,    0\x03':
+            print "graphtecprint: Warning: Unexpected reply:", repr(res)
+
+    f.write("FA\x03")
+
+    f.write("FU" + str(page[2] - margintop) + "," + str(page[1] - marginright) + "\x03")
+    f.write("FM1\x03")
+    f.write("TB50,1\x03")
+    f.write("FO" + str(page[2] - margintop) + "\x03")
+    f.write("&100,100,100,\\0,0,")
+    f.write("Z" + str(page[1]) + "," + str(page[2]) + ",L0,")
+
+    for s in strokes:
+        p = s[0]
+        f.write("M%.3f,%.3f\x03" % (p[0], p[1]) )
+        for p in s[1:]:
+            f.write("D%.3f,%.3f\x03" % (p[0], p[1]) )
+
+    f.write("&1,1,1,TB50,0\x03")
+    f.write("FO0\x03")
+    f.write("H,")
+
+    if not debug:
+        f.close()
+
+    return 0
+
+
+
+# Get the data from pstoedit
+def readdata():
+    (child_out, child_in) = os.popen2("pstoedit -dt -f pic")
+    while True:
+        ps = sys.stdin.read()
+        if not ps:
+            break
+        child_out.write(ps)
+    child_out.close()
+
+    scale = 2.54 * 200 #from inch to 1/20th mm
+
+    while True:
+        line = child_in.readline()
+        if not line:
+            break
+        if line[:10] == "line from ":
+            
+            line = line[10:]
+            x = line.find(" ")
+            if x < 0:
+                continue
+            
+            p = line[:x].split(",")
+
+            p[0] = float(p[0]) * scale
+            p[1] = float(p[1]) * scale
+
+            stroke = [ p ]
+            
+            line = line[x:] + " " #add an extra space for the find() below
+            
+            while line[:4] == " to ":
+                line = line[4:]
+                x = line.find(" ")
+                if x < 0:
+                    break
+                
+                p = line[:x].split(",")
+                
+                p[0] = float(p[0]) * scale
+                p[1] = float(p[1]) * scale
+                
+                stroke.append(p)
+                
+                line = line[x:]
+
+            strokes.append(stroke)
+    child_in.close()
+
+    if not strokes:
+        print "graphtecprint: Fatal: Nothing to print?"
+        sys.exit(2)
+
+
+# Scan for usable printers
+def scanprinters():
+
+    global printers
+
+    printers = []
+
+    for dev in glob.glob("/dev/usb/lp*"):
+        id = getprinterident(dev)
+        if not id:
+            continue
+        params = id.split(";")
+        p = {}
+        for param in params:
+            if not param:
+                continue
+            k, v = param.split(":", 1)
+            p[k] = v
+
+        # Basic sanity checking
+        if not p.has_key("CLASS") or p["CLASS"] != "PRINTER":
+            continue
+        if not p.has_key("MANUFACTURER"):
+            continue
+
+        # Testing for the different models
+        supported = False
+        if p["MANUFACTURER"] == "Graphtec":
+            # MANUFACTURER:Graphtec;MODEL:CC200-20;CLASS:PRINTER;DESCRIPTION:Graphtec CC200-20;
+            if p.has_key("MODEL") and p["MODEL"] == "CC200-20":
+                supported = True
+        elif p["MANUFACTURER"] == "Wishblade Inc." or p["MANUFACTURER"] == "WishbladeInc.":
+            # MANUFACTURER:Wishblade Inc.;MODEL:WB100-20;CLASS:PRINTER;DESCRIPTION:Wishblade Inc. WB100-20;
+            if p.has_key("MODEL") and p["MODEL"] == "WB100-20":
+                supported = True
+        else:
+            # Probably not a supported model. Ignore.
+            continue
+
+        if not supported:
+            print "graphtecprint: Warning: Possibly unsupported model. Will continue anyway."
+            print "graphtecprint: Warning: If this model works, please send the following"
+            print "graphtecprint: Warning: identification string to vidarino@gmail.com:"
+            print "graphtecprint: Warning: " + repr(id)
+
+        try:
+            f = open(dev, "r+")
+            f.close()
+        except IOError:
+            p["DESCRIPTION"] = p["DESCRIPTION"] + " (Warning: read-only)"
+
+        printers.append( (dev, p) )
+
+
+# Main entry point
+
+printers = []
+strokes = []
+readdata()
+
+datadir = None
+for d in [ os.path.dirname(sys.argv[0]), "/usr/local/share/graphtecprint", "/usr/share/graphtecprint" ]:
+    if os.path.exists(d + "/graphtecprint.glade"):
+        datadir = d
+        break
+if not datadir:
+    print "graphtecprint: Fatal: Could not determine data directory."
+    sys.exit(1)
+
+
+# Instantiate the application
+dialog = dialog()
+
+# Set window title
+dialog["dialog1"].set_title("graphtecprint v" + version)
+
+# Find connected printers
+dialog.on_rescan_clicked()
+
+if not printers:
+    dialog["okbutton1"].set_sensitive(0)
+    dialog["dialog2"].set_property("visible", True)
+
+# Populate paper size pulldown
+cb = dialog["papersize"]
+for row in papersizes:
+    cb.append_text(row[0])
+cb.set_active(0)
+
+# Populate paper type pulldown
+cb = dialog["papertype"]
+for row in papertypes:
+    cb.append_text(row[4])
+cb.set_active(0)
+
+# Run application
+gtk.main()
+
+
+if dialog.doit:
+    res = doit(dialog.settings)
+    sys.exit(res)
+
+sys.exit(1)
+
+
