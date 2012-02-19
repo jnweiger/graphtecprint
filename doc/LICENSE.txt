@@ -1,0 +1,16 @@
+From: Vidar Madsen <vidarino@gmail.com>
+Date: Fri, Feb 3, 2012 at 8:38 AM
+Subject: Re: graphtecprint at openSUSE
+To: Jürgen Weigert <jnweiger@gmail.com>
+Cc: jw@suse.com, jw@opensuse.org
+
+
+Hi there. Glad you can make use of it. :)
+
+Regarding the license, while I haven't stated one specifically in any of
+the project files (due to pure laziness, I'm afraid), I have informed the
+debian packager that I prefer the GPL2 license, so I'd like to stick with
+that.
+
+Vidar
+

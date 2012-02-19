@@ -347,6 +347,7 @@ def scanprinters():
 
     for dev in glob.glob("/dev/usb/lp*"):
         id = getprinterident(dev)
+	# print dev,id
         if not id:
             continue
         params = id.split(";")
@@ -373,6 +374,10 @@ def scanprinters():
             # MANUFACTURER:Wishblade Inc.;MODEL:WB100-20;CLASS:PRINTER;DESCRIPTION:Wishblade Inc. WB100-20;
             if p.has_key("MODEL") and p["MODEL"] == "WB100-20":
                 supported = True
+        elif p["MANUFACTURER"] == "Silhouette":
+	    # MANUFACTURER:Silhouette;MODEL:CAMEO;CLASS:PRINTER;DESCRIPTION:Silhouette CAMEO;
+            if p.has_key("MODEL") and p["MODEL"] == "CAMEO":
+                supported = True	# almost sure...
         else:
             # Probably not a supported model. Ignore.
             continue
