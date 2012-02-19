@@ -9,7 +9,7 @@ import glob
 import cairo
 
 
-version = "1.0.1"
+version = "1.2.0"	# based on 1.0.1
  
 # Downscaling factor from paper size (mm*20) to pixels
 previewscale = 20
@@ -52,10 +52,39 @@ papertypes = [
 # Format: name, width, height
 # Sizes are specified in millimeters * 20
 papersizes = [
-        ("A4",     4200, 5940),
+        ("A4 portrait",      4200, 5940),
+        ("A4 landscape",     5940, 4200),	# cameo only
+        ("A3 portrait",      5940, 8400),	# cameo only
         ("Letter", 4318, 5588)
         ]
 
+
+open_printer = None
+
+def send_printer(cmd, done=False):
+    global printers
+    global dialog
+    printer = printers[dialog["printer"].get_active()]
+    # print "openprinter: %s" % printer[0]
+    try:
+        f = open(printer[0], "r+")
+    except IOError, (val, msg):
+        print "Error opening " + printer[0] + ":", val, msg
+        if val == 13:
+            print "Try running:  sudo chmod a+rw " + printer[0]
+        return None
+
+    if cmd is not None:
+	f.write(cmd)
+	f.flush()
+
+    if done:
+        f.close()
+	open_printer = None
+    else:
+	open_printer = f
+
+    return open_printer
 
 def getprinterident(file):
     try:
@@ -74,11 +103,11 @@ def getprinterident(file):
     return x
 
 
-class dialog:
-    def __init__(self):
+class graphtec_dialog:
+    def __init__(self, datadir):
         self.widgets = gtk.glade.XML(datadir + "/graphtecprint.glade")
         #self.widgets = gtk.glade.xml_new_from_buffer(gladexml, len(gladexml))
-        self.widgets.signal_autoconnect(dialog.__dict__)
+        self.widgets.signal_autoconnect(graphtec_dialog.__dict__)
 
         self.doit = False
 
@@ -178,6 +207,7 @@ class dialog:
         scanprinters()
 
         if printers:
+            global dialog
             cb = dialog["printer"]
             
             selected = cb.get_active()
@@ -191,8 +221,41 @@ class dialog:
                 cb.append_text(p["DESCRIPTION"] + " (" + dev + ")")
 
             cb.set_active(selected)
-
             dialog["okbutton1"].set_sensitive(True)
+
+	    if printers[selected][1]["DESCRIPTION"] == 'Silhouette CAMEO':
+		### load cameo specific data
+		# from cameo import cameo_dialog
+		# dialog = cameo_dialog()
+                dialog["pos_buttons"].set_sensitive(True)
+                dialog["pos_label"].set_sensitive(True)
+
+## FIXME: Silhouette CAMEO specific calls should be in cameo.py
+# movements: 1b 00 0X
+# where X is a bitmap
+#   1 down
+#   2 up
+#   4 right
+#   8 left
+
+    def on_buttondown_pressed(w):   send_printer("\x1b\x00\x01")
+    def on_buttondown_released(w):  send_printer("\x1b\x00\x00", done=True)
+    def on_buttonup_pressed(w):     send_printer("\x1b\x00\x02")
+    def on_buttonup_released(w):    send_printer("\x1b\x00\x00", done=True)
+    def on_buttonright_pressed(w):  send_printer("\x1b\x00\x04")
+    def on_buttonright_released(w): send_printer("\x1b\x00\x00", done=True)
+    def on_buttonleft_pressed(w):   send_printer("\x1b\x00\x08")
+    def on_buttonleft_released(w):  send_printer("\x1b\x00\x00", done=True)
+
+    def on_buttondownright_pressed(w):  send_printer("\x1b\x00\x05")
+    def on_buttondownright_released(w): send_printer("\x1b\x00\x00", done=True)
+    def on_buttondownleft_pressed(w):   send_printer("\x1b\x00\x09")
+    def on_buttondownleft_released(w):  send_printer("\x1b\x00\x00", done=True)
+    def on_buttonupright_pressed(w):    send_printer("\x1b\x00\x06")
+    def on_buttonupright_released(w):   send_printer("\x1b\x00\x00", done=True)
+    def on_buttonupleft_pressed(w):     send_printer("\x1b\x00\x0a")
+    def on_buttonupleft_released(w):    send_printer("\x1b\x00\x00", done=True)
+
 
 def readresult(f):
     res = ""
@@ -206,6 +269,7 @@ def readresult(f):
 
 def doit(settings):
     printer = printers[settings["printer"]]
+    print printer
     page = papersizes[settings["papersize"]]
     papertype = papertypes[settings["papertype"]]
     orientation = ["1","0"][settings["orientation"]]
@@ -405,6 +469,7 @@ readdata()
 
 datadir = None
 for d in [ os.path.dirname(sys.argv[0]), "/usr/local/share/graphtecprint", "/usr/share/graphtecprint" ]:
+    sys.path.append(d)	# for loading modules
     if os.path.exists(d + "/graphtecprint.glade"):
         datadir = d
         break
@@ -412,9 +477,12 @@ if not datadir:
     print "graphtecprint: Fatal: Could not determine data directory."
     sys.exit(1)
 
-
+### does not work. NameError: global name 'graphtec_dialog' is not defined
+### FIXME, class graphtec_dialog is above, wy would import refuse to see it?
+# from graphtec_generic import graphtec_dialog
+# import cameo 
 # Instantiate the application
-dialog = dialog()
+dialog = graphtec_dialog(datadir)
 
 # Set window title
 dialog["dialog1"].set_title("graphtecprint v" + version)
@@ -436,7 +504,7 @@ cb.set_active(0)
 cb = dialog["papertype"]
 for row in papertypes:
     cb.append_text(row[4])
-cb.set_active(0)
+cb.set_active(6)	# pen
 
 # Run application
 gtk.main()
