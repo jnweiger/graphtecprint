@@ -465,7 +465,14 @@ def scanprinters():
 
 printers = []
 strokes = []
-readdata()
+if False:
+  readdata()
+else:
+  import gtp_loader 
+  l = gtp_loader.loader()
+  l.load(sys.stdin)
+  strokes = l.strokes()
+
 
 datadir = None
 for d in [ os.path.dirname(sys.argv[0]), "/usr/local/share/graphtecprint", "/usr/share/graphtecprint" ]:

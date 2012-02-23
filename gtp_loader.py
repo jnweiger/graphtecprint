@@ -50,6 +50,15 @@ class loader:
     child_err = re.sub('^pstoedit: .*', '', child_err, re.M)
     if not re.match('\s*$', child_err, re.S):
       raise IOError, child_err + "\n\npstoedit failed. Not a postscipt file?"
+
+    self.mstrokes = []   # all, for compat...
+    self.cstrokes = {}  # by color
+    scale = 3.96
+    m = re.search('state\((.*?)\)\.', child_out, re.S)
+    state = m.group(1).split(',')
+    self.xceil = float(state[36])*scale
+    self.yceil = float(state[37])*scale
+
     for stmt in re.findall('(box|polygon|poly)\((.*?)\)\.', child_out, re.S):
       if stmt[0].startswith('poly'):
         ## both poly and polygon have this format:
@@ -59,21 +68,40 @@ class loader:
         color = color.strip("'")
         vector = re.sub('[\[\s]+','', vector, 0, re.S)  # zap leading [ and any whitespace
         vector = re.sub('\].*$','', vector, 1, re.S)    # zap ] and any remainder.
-        vector = [float(i) for i in vector.split(',')]  # convert to double
-        vector = zip(vector[::2], vector[1::2])         # convert to pairs
-        print "XXXXX" + repr(vector)
+        vector = [float(i)*scale for i in vector.split(',')]  # convert to double
+        vector = zip(                  vector[ ::2], 
+                     [self.yceil-v for v in vector[1::2]])   # convert to pairs and flip
+        self.mstrokes.append(vector)
+        if self.cstrokes.has_key(stmt[0]): self.cstrokes[stmt[0]].append(vector)
+        else:                              self.cstrokes[stmt[0]] = [ vector ]
+        # print "XXXXX" + repr(vector)
 
       else:
-        # box has this format:
+        ## box has this format:
         #  color        llx,lly         urx,ury   , ignore ...
         # '#0000ff',958.958,186.389,1037.82,19.9229,0,1.87244,1,41,0,0,0,
         (color,llx,lly,urx,ury,dummy) = stmt[1].split(',',5)
         color = color.strip("'")
-        vector = [ (float(llx),float(lly)), (float(llx),float(ury)),
-                   (float(urx),float(ury)), (float(urx),float(lly)),
-                   (float(llx),float(lly)) ]
-        print "yyyyy" + repr(vector)
+        llx =            float(llx)*scale
+        lly = self.yceil-float(lly)*scale
+        urx =            float(urx)*scale
+        ury = self.yceil-float(ury)*scale
+        vector = [ (llx,lly), (llx,ury), (urx,ury), (urx,lly), (llx,lly) ]
+        self.mstrokes.append(vector)
+        if self.cstrokes.has_key(stmt[0]): self.cstrokes[stmt[0]].append(vector)
+        else:                              self.cstrokes[stmt[0]] = [ vector ]
+        # print "yyyyy" + repr(vector)
 
+  def strokes(self, color=None):
+    if color is not None:
+      return self.cstrokes[color]
+    else:
+      return self.mstrokes
+
+  def colors(self):
+    return self.cstrokes.keys()
+  def bbox(self):
+    return (0,0,self.xceil,self.yceil)
 
 if __name__ == '__main__':
   print "gtp_loader started"
@@ -82,4 +110,5 @@ if __name__ == '__main__':
     l.load(sys.argv[1])
   else:
     l.load(sys.stdin)
+  print "bbox: " + repr(l.bbox())
   sys.exit(0)
