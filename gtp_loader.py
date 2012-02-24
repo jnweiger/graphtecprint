@@ -37,12 +37,14 @@ class loader:
       file_in = open(file_in, 'r')
     ####
     # pstoedit -dt -f 'hpgl:-pen -pencolors 255'
-    # can distinguish 255 colors
+    # can distinguish 255 colors, but does not tell us which color is which
     ####
     # pstoedit -dt -f tgif
     # has easily parsable polygons, and colors associated with them.
+    # unit: 1/128 inch
     ####
     # pic is monochrom.
+    # unit: 1 inch
     ####
     p2 = subprocess.Popen([self.pstoedit,'-dt','-f','tgif'], 
         stdin=file_in, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -53,9 +55,16 @@ class loader:
 
     self.mstrokes = []   # all, for compat...
     self.cstrokes = {}  # by color
-    scale = 3.96
+    # convert from 1/128 in to 1/20mm, which is the graphtec coordinate system.
+    scale = 25.4*20./128.
     m = re.search('state\((.*?)\)\.', child_out, re.S)
     state = m.group(1).split(',')
+
+    if not state[36] == '1056': 
+      print "WARNING: pstoedit -f tgif: xceil=%s (expected 1056)" % state[36]
+    if not state[37] == '1497': 
+      print "WARNING: pstoedit -f tgif: yceil=%s (expected 1497)" % state[37]
+
     self.xceil = float(state[36])*scale
     self.yceil = float(state[37])*scale
 
@@ -72,8 +81,8 @@ class loader:
         vector = zip(                  vector[ ::2], 
                      [self.yceil-v for v in vector[1::2]])   # convert to pairs and flip
         self.mstrokes.append(vector)
-        if self.cstrokes.has_key(stmt[0]): self.cstrokes[stmt[0]].append(vector)
-        else:                              self.cstrokes[stmt[0]] = [ vector ]
+        if self.cstrokes.has_key(color): self.cstrokes[color].append(vector)
+        else:                            self.cstrokes[color] = [ vector ]
         # print "XXXXX" + repr(vector)
 
       else:
@@ -88,8 +97,8 @@ class loader:
         ury = self.yceil-float(ury)*scale
         vector = [ (llx,lly), (llx,ury), (urx,ury), (urx,lly), (llx,lly) ]
         self.mstrokes.append(vector)
-        if self.cstrokes.has_key(stmt[0]): self.cstrokes[stmt[0]].append(vector)
-        else:                              self.cstrokes[stmt[0]] = [ vector ]
+        if self.cstrokes.has_key(color): self.cstrokes[color].append(vector)
+        else:                            self.cstrokes[color] = [ vector ]
         # print "yyyyy" + repr(vector)
 
   def strokes(self, color=None):

@@ -348,6 +348,7 @@ def doit(settings):
 
 
 # Get the data from pstoedit
+# DEPRECATED: cannot distinguish color.
 def readdata():
     (child_out, child_in) = os.popen2("pstoedit -dt -f pic")
     while True:
@@ -465,14 +466,17 @@ def scanprinters():
 
 printers = []
 strokes = []
+cstrokes = {}
 if False:
   readdata()
 else:
   import gtp_loader 
   l = gtp_loader.loader()
   l.load(sys.stdin)
+  for color in l.colors():
+    cstrokes[color] = l.strokes(color)
+  # old compat ...
   strokes = l.strokes()
-
 
 datadir = None
 for d in [ os.path.dirname(sys.argv[0]), "/usr/local/share/graphtecprint", "/usr/share/graphtecprint" ]:
