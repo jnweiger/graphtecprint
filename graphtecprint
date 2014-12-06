@@ -2,15 +2,15 @@
 
 import fcntl
 import sys
-import gtk, gobject
+import gtk
 import gtk.glade
 import os
 import glob
 import cairo
 
 
-version = "1.2.0"	# based on 1.0.1
- 
+version = "1.2.0"  # based on 1.0.1
+
 # Downscaling factor from paper size (mm*20) to pixels
 previewscale = 20
 
@@ -20,46 +20,43 @@ marginright = 320
 
 # Format:  ID, speed, force, cap-colour, name
 # Non-standard presets must use ID "300".
-papertypes = [
-        ("100", 10, 27, "yellow", "Card without Craft Paper Backing"),
-        ("101", 10, 27, "yellow", "Card with Craft Paper Backing"),
-        ("102", 10, 10, "blue", "Vinyl Sticker"),
-        ("106", 10, 14, "blue", "Film Labels"),
-        ("111", 10, 27, "yellow", "Thick Media"),
-        ("112", 10,  2, "blue", "Thin Media"),
-        ("113", 10, 10, "pen", "Pen"),
-        ("120", 10, 30, "blue", "Bond Paper 13-28 lbs"),
-        ("121", 10, 30, "yellow", "Bristol Paper 57-67 lbs"),
-        ("122", 10, 30, "yellow", "Cardstock 40-60 lbs"),
-        ("123", 10, 30, "yellow", "Cover 40-60 lbs"),
-        ("124", 10,  1, "blue", "Film, Double Matte Translucent"),
-        ("125", 10,  1, "blue", "Film, Vinyl With Adhesive Back"),
-        ("126", 10,  1, "blue", "Film, Window With Kling Adhesive"),
-        ("127", 10, 30, "red", "Index 90 lbs"),
-        ("128", 10, 20, "yellow", "Inkjet Photo Paper 28-44 lbs"),
-        ("129", 10, 27, "red", "Inkjet Photo Paper 45-75 lbs"),
-        ("130",  3, 30, "red", "Magnetic Sheet"),
-        ("131", 10, 30, "blue", "Offset 24-60 lbs"),
-        ("132", 10,  5, "blue", "Print Paper Light Weight"),
-        ("133", 10, 25, "yellow", "Print Paper Medium Weight"),
-        ("134", 10, 20, "blue", "Sticker Sheet"),
-        ("135", 10, 20, "red", "Tag 100 lbs"),
-        ("136", 10, 30, "blue", "Text Paper 24-70 lbs"),
-        ("137", 10, 30, "yellow", "Vellum Bristol 57-67 lbs"),
-        ("138", 10, 30, "blue", "Writing Paper 24-70 lbs")
-        ]
+papertypes = [("100", 10, 27, "yellow", "Card without Craft Paper Backing"),
+              ("101", 10, 27, "yellow", "Card with Craft Paper Backing"),
+              ("102", 10, 10, "blue", "Vinyl Sticker"),
+              ("106", 10, 14, "blue", "Film Labels"),
+              ("111", 10, 27, "yellow", "Thick Media"),
+              ("112", 10,  2, "blue", "Thin Media"),
+              ("113", 10, 10, "pen", "Pen"),
+              ("120", 10, 30, "blue", "Bond Paper 13-28 lbs"),
+              ("121", 10, 30, "yellow", "Bristol Paper 57-67 lbs"),
+              ("122", 10, 30, "yellow", "Cardstock 40-60 lbs"),
+              ("123", 10, 30, "yellow", "Cover 40-60 lbs"),
+              ("124", 10,  1, "blue", "Film, Double Matte Translucent"),
+              ("125", 10,  1, "blue", "Film, Vinyl With Adhesive Back"),
+              ("126", 10,  1, "blue", "Film, Window With Kling Adhesive"),
+              ("127", 10, 30, "red", "Index 90 lbs"),
+              ("128", 10, 20, "yellow", "Inkjet Photo Paper 28-44 lbs"),
+              ("129", 10, 27, "red", "Inkjet Photo Paper 45-75 lbs"),
+              ("130",  3, 30, "red", "Magnetic Sheet"),
+              ("131", 10, 30, "blue", "Offset 24-60 lbs"),
+              ("132", 10,  5, "blue", "Print Paper Light Weight"),
+              ("133", 10, 25, "yellow", "Print Paper Medium Weight"),
+              ("134", 10, 20, "blue", "Sticker Sheet"),
+              ("135", 10, 20, "red", "Tag 100 lbs"),
+              ("136", 10, 30, "blue", "Text Paper 24-70 lbs"),
+              ("137", 10, 30, "yellow", "Vellum Bristol 57-67 lbs"),
+              ("138", 10, 30, "blue", "Writing Paper 24-70 lbs")]
 
 # Format: name, width, height
 # Sizes are specified in millimeters * 20
-papersizes = [
-        ("A4 portrait",      4200, 5940),
-        ("A4 landscape",     5940, 4200),	# cameo only
-        ("A3 portrait",      5940, 8400),	# cameo only
-        ("Letter", 4318, 5588)
-        ]
+papersizes = [("A4 portrait",      4200, 5940),
+              ("A4 landscape",     5940, 4200),  # cameo only
+              ("A3 portrait",      5940, 8400),  # cameo only
+              ("Letter", 4318, 5588)]
 
 
 open_printer = None
+
 
 def send_printer(cmd, done=False):
     global printers
@@ -75,16 +72,17 @@ def send_printer(cmd, done=False):
         return None
 
     if cmd is not None:
-	f.write(cmd)
-	f.flush()
+        f.write(cmd)
+        f.flush()
 
     if done:
         f.close()
-	open_printer = None
+        open_printer = None
     else:
-	open_printer = f
+        open_printer = f
 
     return open_printer
+
 
 def getprinterident(file):
     try:
@@ -106,7 +104,6 @@ def getprinterident(file):
 class graphtec_dialog:
     def __init__(self, datadir):
         self.widgets = gtk.glade.XML(datadir + "/graphtecprint.glade")
-        #self.widgets = gtk.glade.xml_new_from_buffer(gladexml, len(gladexml))
         self.widgets.signal_autoconnect(graphtec_dialog.__dict__)
 
         self.doit = False
@@ -115,6 +112,19 @@ class graphtec_dialog:
 
     def __getitem__(self, key):
         return self.widgets.get_widget(key)
+
+    def confirm(self):
+        dialog.settings = {
+            "printer": dialog["printer"].get_active(),
+            "papersize": dialog["papersize"].get_active(),
+            "orientation": dialog["orientation"].get_active(),
+            "papertype": dialog["papertype"].get_active(),
+            "cuttingspeed": dialog["cuttingspeed"].get_value(),
+            "cuttingforce": dialog["cuttingforce"].get_value(),
+            "trackenhancing": dialog["trackenhancing"].get_active()
+            }
+
+        dialog.doit = True
 
     def on_dialog1_close(a):
         gtk.main_quit()
@@ -139,24 +149,13 @@ class graphtec_dialog:
         dialog["dialog2"].set_property("visible", False)
 
     def on_okbutton1_clicked(w):
-
-        dialog.settings = {
-                "printer": dialog["printer"].get_active(),
-                "papersize": dialog["papersize"].get_active(),
-                "orientation": dialog["orientation"].get_active(),
-                "papertype": dialog["papertype"].get_active(),
-                "cuttingspeed": dialog["cuttingspeed"].get_value(),
-                "cuttingforce": dialog["cuttingforce"].get_value(),
-                "trackenhancing": dialog["trackenhancing"].get_active()
-                }
-
-        dialog.doit = True
-
+        w.confirm()
         gtk.main_quit()
 
     def on_papersize_changed(w):
         name, width, height = papersizes[dialog["papersize"].get_active()]
-        dialog["drawingarea1"].set_size_request(width / previewscale, height / previewscale)
+        dialog["drawingarea1"].set_size_request(width / previewscale,
+                                                height / previewscale)
 
     def on_papertype_changed(w):
         v = w.get_active()
@@ -173,31 +172,29 @@ class graphtec_dialog:
 
         ctx = area.window.cairo_create()
 
-        ctx.set_source_rgb (1, 1, 1)
-        ctx.set_operator (cairo.OPERATOR_SOURCE)
+        ctx.set_source_rgb(1, 1, 1)
+        ctx.set_operator(cairo.OPERATOR_SOURCE)
         ctx.paint()
 
-        ctx.set_line_width (1)
-        ctx.set_source_rgb (1, 0.5, 0.5)
+        ctx.set_line_width(1)
+        ctx.set_source_rgb(1, 0.5, 0.5)
         ctx.move_to(0, height)
-        ctx.line_to(width - marginright/previewscale, height);
+        ctx.line_to(width - marginright/previewscale, height)
         ctx.line_to(width - marginright/previewscale, margintop/previewscale)
         ctx.line_to(0, margintop/previewscale)
         ctx.line_to(0, height)
         ctx.stroke()
-        
-        ctx.set_line_width (0.5)
-        ctx.set_source_rgb (0, 0, 0)
+
+        ctx.set_line_width(0.5)
+        ctx.set_source_rgb(0, 0, 0)
 
         scale = 1.0 / previewscale
 
         for s in strokes:
             p = s[0]
-            #print ( p[0] * scale, p[1] * scale )
-            ctx.move_to( p[0] * scale, height - p[1] * scale )
+            ctx.move_to(p[0] * scale, height - p[1] * scale)
             for p in s[1:]:
-                #print ( p[0] * scale, p[1] * scale )
-                ctx.line_to( p[0] * scale, height - p[1] * scale )
+                ctx.line_to(p[0] * scale, height - p[1] * scale)
             ctx.stroke()
 
         return True
@@ -209,7 +206,7 @@ class graphtec_dialog:
         if printers:
             global dialog
             cb = dialog["printer"]
-            
+
             selected = cb.get_active()
             if selected < 0:
                 selected = 0
@@ -223,14 +220,14 @@ class graphtec_dialog:
             cb.set_active(selected)
             dialog["okbutton1"].set_sensitive(True)
 
-	    if printers[selected][1]["DESCRIPTION"] == 'Silhouette CAMEO':
-		### load cameo specific data
-		# from cameo import cameo_dialog
-		# dialog = cameo_dialog()
-                dialog["pos_buttons"].set_sensitive(True)
-                dialog["pos_label"].set_sensitive(True)
+        if printers[selected][1]["DESCRIPTION"] == 'Silhouette CAMEO':
+            # load cameo specific data
+            # from cameo import cameo_dialog
+            # dialog = cameo_dialog()
+            dialog["pos_buttons"].set_sensitive(True)
+            dialog["pos_label"].set_sensitive(True)
 
-## FIXME: Silhouette CAMEO specific calls should be in cameo.py
+# FIXME: Silhouette CAMEO specific calls should be in cameo.py
 # movements: 1b 00 0X
 # where X is a bitmap
 #   1 down
@@ -238,23 +235,53 @@ class graphtec_dialog:
 #   4 right
 #   8 left
 
-    def on_buttondown_pressed(w):   send_printer("\x1b\x00\x01")
-    def on_buttondown_released(w):  send_printer("\x1b\x00\x00", done=True)
-    def on_buttonup_pressed(w):     send_printer("\x1b\x00\x02")
-    def on_buttonup_released(w):    send_printer("\x1b\x00\x00", done=True)
-    def on_buttonright_pressed(w):  send_printer("\x1b\x00\x04")
-    def on_buttonright_released(w): send_printer("\x1b\x00\x00", done=True)
-    def on_buttonleft_pressed(w):   send_printer("\x1b\x00\x08")
-    def on_buttonleft_released(w):  send_printer("\x1b\x00\x00", done=True)
+    def on_buttondown_pressed(w):
+        send_printer("\x1b\x00\x01")
 
-    def on_buttondownright_pressed(w):  send_printer("\x1b\x00\x05")
-    def on_buttondownright_released(w): send_printer("\x1b\x00\x00", done=True)
-    def on_buttondownleft_pressed(w):   send_printer("\x1b\x00\x09")
-    def on_buttondownleft_released(w):  send_printer("\x1b\x00\x00", done=True)
-    def on_buttonupright_pressed(w):    send_printer("\x1b\x00\x06")
-    def on_buttonupright_released(w):   send_printer("\x1b\x00\x00", done=True)
-    def on_buttonupleft_pressed(w):     send_printer("\x1b\x00\x0a")
-    def on_buttonupleft_released(w):    send_printer("\x1b\x00\x00", done=True)
+    def on_buttondown_released(w):
+        send_printer("\x1b\x00\x00", done=True)
+
+    def on_buttonup_pressed(w):
+        send_printer("\x1b\x00\x02")
+
+    def on_buttonup_released(w):
+        send_printer("\x1b\x00\x00", done=True)
+
+    def on_buttonright_pressed(w):
+        send_printer("\x1b\x00\x04")
+
+    def on_buttonright_released(w):
+        send_printer("\x1b\x00\x00", done=True)
+
+    def on_buttonleft_pressed(w):
+        send_printer("\x1b\x00\x08")
+
+    def on_buttonleft_released(w):
+        send_printer("\x1b\x00\x00", done=True)
+
+    def on_buttondownright_pressed(w):
+        send_printer("\x1b\x00\x05")
+
+    def on_buttondownright_released(w):
+        send_printer("\x1b\x00\x00", done=True)
+
+    def on_buttondownleft_pressed(w):
+        send_printer("\x1b\x00\x09")
+
+    def on_buttondownleft_released(w):
+        send_printer("\x1b\x00\x00", done=True)
+
+    def on_buttonupright_pressed(w):
+        send_printer("\x1b\x00\x06")
+
+    def on_buttonupright_released(w):
+        send_printer("\x1b\x00\x00", done=True)
+
+    def on_buttonupleft_pressed(w):
+        send_printer("\x1b\x00\x0a")
+
+    def on_buttonupleft_released(w):
+        send_printer("\x1b\x00\x00", done=True)
 
 
 def readresult(f):
@@ -272,10 +299,10 @@ def doit(settings):
     print printer
     page = papersizes[settings["papersize"]]
     papertype = papertypes[settings["papertype"]]
-    orientation = ["1","0"][settings["orientation"]]
+    orientation = ["1", "0"][settings["orientation"]]
     cuttingspeed = settings["cuttingspeed"]
     cuttingforce = settings["cuttingforce"]
-    trackenhancing = ["0","1"][settings["trackenhancing"]]
+    trackenhancing = ["0", "1"][settings["trackenhancing"]]
 
     debug = False
 
@@ -290,7 +317,8 @@ def doit(settings):
     if not debug:
         res = readresult(f)
         if res != "0\x03":
-            print "graphtecprint: Fatal: Error in handshake. Got res " + repr(res) + "."
+            print "graphtecprint: Fatal: Error in handshake."
+            print "Got res %r, expected 0\\x03." % res
             f.close()
             return 4
 
@@ -300,9 +328,9 @@ def doit(settings):
     if not debug:
         res = readresult(f)
         if res == 'V5.00    \x03':
-            pass # QuicKutz Silhouette
+            pass  # QuicKutz Silhouette
         elif res == 'V2.11 ALQ\x03':
-            pass # Wishblade
+            pass  # Wishblade
         else:
             print "graphtecprint: Warning: Unexpected version:", repr(res)
 
@@ -323,7 +351,8 @@ def doit(settings):
 
     f.write("FA\x03")
 
-    f.write("FU" + str(page[2] - margintop) + "," + str(page[1] - marginright) + "\x03")
+    f.write("FU" + str(page[2] - margintop) + ","
+            + str(page[1] - marginright) + "\x03")
     f.write("FM1\x03")
     f.write("TB50,1\x03")
     f.write("FO" + str(page[2] - margintop) + "\x03")
@@ -332,9 +361,9 @@ def doit(settings):
 
     for s in strokes:
         p = s[0]
-        f.write("M%.3f,%.3f\x03" % (p[0], p[1]) )
+        f.write("M%.3f,%.3f\x03" % (p[0], p[1]))
         for p in s[1:]:
-            f.write("D%.3f,%.3f\x03" % (p[0], p[1]) )
+            f.write("D%.3f,%.3f\x03" % (p[0], p[1]))
 
     f.write("&1,1,1,TB50,0\x03")
     f.write("FO0\x03")
@@ -344,7 +373,6 @@ def doit(settings):
         f.close()
 
     return 0
-
 
 
 # Get the data from pstoedit
@@ -358,41 +386,41 @@ def readdata():
         child_out.write(ps)
     child_out.close()
 
-    scale = 2.54 * 200 #from inch to 1/20th mm
+    scale = 2.54 * 200  # from inch to 1/20th mm
 
     while True:
         line = child_in.readline()
         if not line:
             break
         if line[:10] == "line from ":
-            
+
             line = line[10:]
             x = line.find(" ")
             if x < 0:
                 continue
-            
+
             p = line[:x].split(",")
 
             p[0] = float(p[0]) * scale
             p[1] = float(p[1]) * scale
 
-            stroke = [ p ]
-            
-            line = line[x:] + " " #add an extra space for the find() below
-            
+            stroke = [p]
+
+            line = line[x:] + " "  # add an extra space for the find() below
+
             while line[:4] == " to ":
                 line = line[4:]
                 x = line.find(" ")
                 if x < 0:
                     break
-                
+
                 p = line[:x].split(",")
-                
+
                 p[0] = float(p[0]) * scale
                 p[1] = float(p[1]) * scale
-                
+
                 stroke.append(p)
-                
+
                 line = line[x:]
 
             strokes.append(stroke)
@@ -412,7 +440,7 @@ def scanprinters():
 
     for dev in glob.glob("/dev/usb/lp*"):
         id = getprinterident(dev)
-	# print dev,id
+    # print dev,id
         if not id:
             continue
         params = id.split(";")
@@ -424,25 +452,25 @@ def scanprinters():
             p[k] = v
 
         # Basic sanity checking
-        if not p.has_key("CLASS") or p["CLASS"] != "PRINTER":
+        if "CLASS" not in p or p["CLASS"] != "PRINTER":
             continue
-        if not p.has_key("MANUFACTURER"):
+        if "MANUFACTURER" not in p:
             continue
 
         # Testing for the different models
         supported = False
         if p["MANUFACTURER"] == "Graphtec":
             # MANUFACTURER:Graphtec;MODEL:CC200-20;CLASS:PRINTER;DESCRIPTION:Graphtec CC200-20;
-            if p.has_key("MODEL") and p["MODEL"] == "CC200-20":
+            if "MODEL" in p and p["MODEL"] == "CC200-20":
                 supported = True
         elif p["MANUFACTURER"] == "Wishblade Inc." or p["MANUFACTURER"] == "WishbladeInc.":
             # MANUFACTURER:Wishblade Inc.;MODEL:WB100-20;CLASS:PRINTER;DESCRIPTION:Wishblade Inc. WB100-20;
-            if p.has_key("MODEL") and p["MODEL"] == "WB100-20":
+            if "MODEL" in p and p["MODEL"] == "WB100-20":
                 supported = True
         elif p["MANUFACTURER"] == "Silhouette":
-	    # MANUFACTURER:Silhouette;MODEL:CAMEO;CLASS:PRINTER;DESCRIPTION:Silhouette CAMEO;
-            if p.has_key("MODEL") and p["MODEL"] == "CAMEO":
-                supported = True	# almost sure...
+            # MANUFACTURER:Silhouette;MODEL:CAMEO;CLASS:PRINTER;DESCRIPTION:Silhouette CAMEO;
+            if "MODEL" in p and p["MODEL"] == "CAMEO":
+                supported = True    # almost sure...
         else:
             # Probably not a supported model. Ignore.
             continue
@@ -459,72 +487,69 @@ def scanprinters():
         except IOError:
             p["DESCRIPTION"] = p["DESCRIPTION"] + " (Warning: read-only)"
 
-        printers.append( (dev, p) )
+        printers.append((dev, p))
 
 
-# Main entry point
+if __name__ == '__main__':
+    printers = []
+    strokes = []
+    cstrokes = {}
+    if False:
+        readdata()
+    else:
+        import gtp_loader
+        l = gtp_loader.loader()
+        l.load(sys.stdin)
+        for color in l.colors():
+            cstrokes[color] = l.strokes(color)
+        # old compat ...
+        strokes = l.strokes()
 
-printers = []
-strokes = []
-cstrokes = {}
-if False:
-  readdata()
-else:
-  import gtp_loader 
-  l = gtp_loader.loader()
-  l.load(sys.stdin)
-  for color in l.colors():
-    cstrokes[color] = l.strokes(color)
-  # old compat ...
-  strokes = l.strokes()
+    datadir = None
+    for d in [os.path.dirname(sys.argv[0]), "/usr/local/share/graphtecprint", "/usr/share/graphtecprint"]:
+        sys.path.append(d)  # for loading modules
+        if os.path.exists(d + "/graphtecprint.glade"):
+            datadir = d
+            break
+    if not datadir:
+        print "graphtecprint: Fatal: Could not determine data directory."
+        sys.exit(1)
 
-datadir = None
-for d in [ os.path.dirname(sys.argv[0]), "/usr/local/share/graphtecprint", "/usr/share/graphtecprint" ]:
-    sys.path.append(d)	# for loading modules
-    if os.path.exists(d + "/graphtecprint.glade"):
-        datadir = d
-        break
-if not datadir:
-    print "graphtecprint: Fatal: Could not determine data directory."
+    # does not work. NameError: global name 'graphtec_dialog' is not defined
+    # FIXME, class graphtec_dialog is above, wy would import refuse to see it?
+
+    # from graphtec_generic import graphtec_dialog
+    # import cameo
+    # Instantiate the application
+    dialog = graphtec_dialog(datadir)
+
+    # Set window title
+    dialog["dialog1"].set_title("graphtecprint v" + version)
+
+    # Find connected printers
+    dialog.on_rescan_clicked()
+
+    if not printers:
+        dialog["okbutton1"].set_sensitive(0)
+        dialog["dialog2"].set_property("visible", True)
+
+    # Populate paper size pulldown
+    cb = dialog["papersize"]
+    for row in papersizes:
+        cb.append_text(row[0])
+    cb.set_active(0)
+
+    # Populate paper type pulldown
+    cb = dialog["papertype"]
+    for row in papertypes:
+        cb.append_text(row[4])
+    cb.set_active(6)    # pen
+
+    # Run application
+    gtk.main()
+
+    if dialog.doit:
+        res = doit(dialog.settings)
+        sys.exit(res)
+
     sys.exit(1)
-
-### does not work. NameError: global name 'graphtec_dialog' is not defined
-### FIXME, class graphtec_dialog is above, wy would import refuse to see it?
-# from graphtec_generic import graphtec_dialog
-# import cameo 
-# Instantiate the application
-dialog = graphtec_dialog(datadir)
-
-# Set window title
-dialog["dialog1"].set_title("graphtecprint v" + version)
-
-# Find connected printers
-dialog.on_rescan_clicked()
-
-if not printers:
-    dialog["okbutton1"].set_sensitive(0)
-    dialog["dialog2"].set_property("visible", True)
-
-# Populate paper size pulldown
-cb = dialog["papersize"]
-for row in papersizes:
-    cb.append_text(row[0])
-cb.set_active(0)
-
-# Populate paper type pulldown
-cb = dialog["papertype"]
-for row in papertypes:
-    cb.append_text(row[4])
-cb.set_active(6)	# pen
-
-# Run application
-gtk.main()
-
-
-if dialog.doit:
-    res = doit(dialog.settings)
-    sys.exit(res)
-
-sys.exit(1)
-
-
