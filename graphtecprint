@@ -10,7 +10,7 @@ import cairo
 
 
 version = "1.2.0"	# based on 1.0.1
- 
+
 # Downscaling factor from paper size (mm*20) to pixels
 previewscale = 20
 
@@ -185,7 +185,7 @@ class graphtec_dialog:
         ctx.line_to(0, margintop/previewscale)
         ctx.line_to(0, height)
         ctx.stroke()
-        
+
         ctx.set_line_width (0.5)
         ctx.set_source_rgb (0, 0, 0)
 
@@ -209,7 +209,7 @@ class graphtec_dialog:
         if printers:
             global dialog
             cb = dialog["printer"]
-            
+
             selected = cb.get_active()
             if selected < 0:
                 selected = 0
@@ -365,34 +365,34 @@ def readdata():
         if not line:
             break
         if line[:10] == "line from ":
-            
+
             line = line[10:]
             x = line.find(" ")
             if x < 0:
                 continue
-            
+
             p = line[:x].split(",")
 
             p[0] = float(p[0]) * scale
             p[1] = float(p[1]) * scale
 
             stroke = [ p ]
-            
+
             line = line[x:] + " " #add an extra space for the find() below
-            
+
             while line[:4] == " to ":
                 line = line[4:]
                 x = line.find(" ")
                 if x < 0:
                     break
-                
+
                 p = line[:x].split(",")
-                
+
                 p[0] = float(p[0]) * scale
                 p[1] = float(p[1]) * scale
-                
+
                 stroke.append(p)
-                
+
                 line = line[x:]
 
             strokes.append(stroke)
@@ -462,69 +462,66 @@ def scanprinters():
         printers.append( (dev, p) )
 
 
-# Main entry point
+if __name__ == '__main__':
+    printers = []
+    strokes = []
+    cstrokes = {}
+    if False:
+      readdata()
+    else:
+      import gtp_loader
+      l = gtp_loader.loader()
+      l.load(sys.stdin)
+      for color in l.colors():
+        cstrokes[color] = l.strokes(color)
+      # old compat ...
+      strokes = l.strokes()
 
-printers = []
-strokes = []
-cstrokes = {}
-if False:
-  readdata()
-else:
-  import gtp_loader 
-  l = gtp_loader.loader()
-  l.load(sys.stdin)
-  for color in l.colors():
-    cstrokes[color] = l.strokes(color)
-  # old compat ...
-  strokes = l.strokes()
+    datadir = None
+    for d in [ os.path.dirname(sys.argv[0]), "/usr/local/share/graphtecprint", "/usr/share/graphtecprint" ]:
+        sys.path.append(d)	# for loading modules
+        if os.path.exists(d + "/graphtecprint.glade"):
+            datadir = d
+            break
+    if not datadir:
+        print "graphtecprint: Fatal: Could not determine data directory."
+        sys.exit(1)
 
-datadir = None
-for d in [ os.path.dirname(sys.argv[0]), "/usr/local/share/graphtecprint", "/usr/share/graphtecprint" ]:
-    sys.path.append(d)	# for loading modules
-    if os.path.exists(d + "/graphtecprint.glade"):
-        datadir = d
-        break
-if not datadir:
-    print "graphtecprint: Fatal: Could not determine data directory."
+    ### does not work. NameError: global name 'graphtec_dialog' is not defined
+    ### FIXME, class graphtec_dialog is above, wy would import refuse to see it?
+    # from graphtec_generic import graphtec_dialog
+    # import cameo
+    # Instantiate the application
+    dialog = graphtec_dialog(datadir)
+
+    # Set window title
+    dialog["dialog1"].set_title("graphtecprint v" + version)
+
+    # Find connected printers
+    dialog.on_rescan_clicked()
+
+    if not printers:
+        dialog["okbutton1"].set_sensitive(0)
+        dialog["dialog2"].set_property("visible", True)
+
+    # Populate paper size pulldown
+    cb = dialog["papersize"]
+    for row in papersizes:
+        cb.append_text(row[0])
+    cb.set_active(0)
+
+    # Populate paper type pulldown
+    cb = dialog["papertype"]
+    for row in papertypes:
+        cb.append_text(row[4])
+    cb.set_active(6)	# pen
+
+    # Run application
+    gtk.main()
+
+
+    if dialog.doit:
+        res = doit(dialog.settings)
+        sys.exit(res)
+
     sys.exit(1)
-
-### does not work. NameError: global name 'graphtec_dialog' is not defined
-### FIXME, class graphtec_dialog is above, wy would import refuse to see it?
-# from graphtec_generic import graphtec_dialog
-# import cameo 
-# Instantiate the application
-dialog = graphtec_dialog(datadir)
-
-# Set window title
-dialog["dialog1"].set_title("graphtecprint v" + version)
-
-# Find connected printers
-dialog.on_rescan_clicked()
-
-if not printers:
-    dialog["okbutton1"].set_sensitive(0)
-    dialog["dialog2"].set_property("visible", True)
-
-# Populate paper size pulldown
-cb = dialog["papersize"]
-for row in papersizes:
-    cb.append_text(row[0])
-cb.set_active(0)
-
-# Populate paper type pulldown
-cb = dialog["papertype"]
-for row in papertypes:
-    cb.append_text(row[4])
-cb.set_active(6)	# pen
-
-# Run application
-gtk.main()
-
-
-if dialog.doit:
-    res = doit(dialog.settings)
-    sys.exit(res)
-
-sys.exit(1)
-
-
